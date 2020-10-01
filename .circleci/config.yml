@@ -1,0 +1,53 @@
+version: 2.1
+
+orbs:
+  win: circleci/windows@2.2.0
+
+workflows:
+  build_push_image:
+    jobs:
+      - build_image:
+         filters:
+          branches:
+            ignore:
+              - master
+      - push_image:
+         context: Secrets
+         filters:
+           branches:
+             only:
+              - master       
+
+jobs:
+  build_image:
+     executor:
+       name: win/default
+       shell: bash
+     steps:
+       - checkout
+       - make_install
+       - run:
+          name: "Print Working Directory"
+          command: ls -lr -R
+       - run: make -f Makefile install
+       - run: make -f Makefile test
+
+  push_image:
+    executor:
+      name: win/default
+      shell: bash
+    steps:
+      - checkout
+      - make_install
+      - run: make -f Makefile login
+      - run: make -f Makefile install IMAGE_TAG=$CIRCLE_BRANCH
+      - run: make -f Makefile test IMAGE_TAG=$CIRCLE_BRANCH
+      - run: make -f Makefile push IMAGE_TAG=$CIRCLE_BRANCH
+
+commands:
+  make_install:
+    description: "Install make"
+    steps:
+      - run:
+          name: Install make
+          command: choco install make

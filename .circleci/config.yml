@@ -1,13 +1,49 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine. See: https://circleci.com/docs/2.0/configuration-reference
 version: 2.1
-# Use a package of configuration called an orb.
+
 orbs:
-  # Declare a dependency on the welcome-orb
-  welcome: circleci/welcome-orb@0.4.1
-# Orchestrate or schedule a set of jobs
+  win: circleci/windows@2.2.0
+
 workflows:
-  # Name the workflow "welcome"
-  welcome:
-    # Run the welcome/run job in its own container
+  build_push_image:
     jobs:
-      - welcome/run
+      - build_image
+      - push_image:
+         context: Secrets
+         filters:
+           branches:
+             only:
+              - master       
+
+jobs:
+  build_image:
+     executor:
+       name: win/default
+       shell: bash
+     steps:
+       - checkout
+       - make_install
+       - run:
+          name: "Print Working Directory"
+          command: ls -lr -R
+       - run: make -f Makefile install
+       - run: make -f Makefile test
+
+  push_image:
+    executor:
+      name: win/default
+      shell: bash
+    steps:
+      - checkout
+      - make_install
+      - run: make -f Makefile login
+      - run: make -f Makefile install IMAGE_TAG=$CIRCLE_BRANCH
+      - run: make -f Makefile test IMAGE_TAG=$CIRCLE_BRANCH
+      #- run: make -f Makefile push IMAGE_TAG=$CIRCLE_BRANCH
+
+commands:
+  make_install:
+    description: "Install make"
+    steps:
+      - run:
+          name: Install make
+          command: choco install make
